@@ -1,6 +1,6 @@
 "use client"; // Menandai komponen ini sebagai Client Component
 
-import React, { useEffect, useState } from 'react'; // Import useState
+import React, { useEffect, useState, useRef } from 'react'; // Import useState
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/components/AuthProvider'; // Import useAuth hook
 import TravelRouteMap from '@/components/TravelRouteMap'; // Import komponen peta
@@ -10,11 +10,11 @@ import MarkersPage from '@/app/markers/page'; // Import komponen MarkersPage yan
  * Interface untuk struktur data marker/tempat yang akan dikirim ke API
  */
 interface NewPlaceMarkerData {
-  name: string;
-  description: string;
+  nama: string;
+  deskripsi: string;
   latitude: number;
   longitude: number;
-  category?: string; // Menambahkan kategori opsional jika diperlukan oleh API
+  kategori?: string; // Menambahkan kategori opsional jika diperlukan oleh API
 }
 
 /**
@@ -39,6 +39,8 @@ const HomePage: React.FC = () => {
   const [submitPlaceError, setSubmitPlaceError] = useState<string | null>(null);
   const [submitPlaceSuccess, setSubmitPlaceSuccess] = useState<string | null>(null);
 
+  // State to trigger refresh of MarkersPage
+  const [refreshMarkers, setRefreshMarkers] = useState(false);
 
   // Ganti placeholder URL ini dengan URL API dasar Anda yang sebenarnya
   const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
@@ -142,6 +144,8 @@ const HomePage: React.FC = () => {
 
       const result = await response.json();
       console.log('Tempat berhasil ditambahkan:', result);
+    // Trigger refresh of MarkersPage by toggling state
+    setRefreshMarkers((prev) => !prev);
       setSubmitPlaceSuccess("Tempat berhasil ditambahkan!");
       // Opsional: Reset form atau tutup modal setelah sukses
       setNewPlaceName('');
@@ -149,8 +153,16 @@ const HomePage: React.FC = () => {
       setNewPlaceLatitude('');
       setNewPlaceLongitude('');
       setNewPlaceCategory('');
-      // handleCloseModal(); // Pertimbangkan apakah modal harus langsung ditutup atau tidak
+      handleCloseModal(); // Pertimbangkan apakah modal harus langsung ditutup atau tidak
                                // Bisa juga tampilkan pesan sukses sebentar lalu tutup.
+
+                               <div className="mt-4">
+                                 {submitPlaceSuccess && (
+                                   <p className="text-green-500">{submitPlaceSuccess}</p>
+                                 )}
+                               </div>
+
+        
     } catch (error: any) {
       console.error('Error adding new place:', error);
       setSubmitPlaceError(`Terjadi kesalahan: ${error.message}`);
@@ -189,10 +201,10 @@ const HomePage: React.FC = () => {
       </div>
 
       {/* Komponen MarkersPage (tabel daftar tempat) hanya untuk peran 'admin' */}
+      {/* Komponen MarkersPage (tabel daftar tempat) hanya untuk peran 'admin' */}
       {isAuthenticated && user?.role === 'admin' && (
-        <MarkersPage />
+        <MarkersPage refresh={refreshMarkers} />
       )}
-
       <hr className="my-8 border-gray-300" />
 
       {/* Bagian TravelRouteMap untuk peran 'user' atau siapa saja yang tidak memiliki role 'admin' */}

@@ -5,8 +5,8 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/components/AuthProvider'; // Import useAuth hook
 
 // Import AG Grid components dan styles
-import { AgGridReact } from 'ag-grid-react';
 import { ModuleRegistry, AllCommunityModule } from 'ag-grid-community';
+import { AgGridReact } from 'ag-grid-react';
 import "ag-grid-community/styles/ag-grid.css";
 import "ag-grid-community/styles/ag-theme-alpine.css";
 
@@ -17,9 +17,9 @@ ModuleRegistry.registerModules([AllCommunityModule]);
  */
 interface PlaceMarker {
   id: string; // Tambahkan ID untuk identifikasi unik
-  name: string;
-  location: string;
-  category: string;
+  nama: string;
+  deskripsi: string;
+  kategori: string;
   latitude?: number; // Tambahkan properti opsional untuk koordinat
   longitude?: number;
   // Anda mungkin perlu menambahkan properti lain sesuai respons API Anda
@@ -53,39 +53,93 @@ const MarkersPage: React.FC = () => {
         : ["name", "location", "category"]; // Fallback default jika data kosong
 
     // Buat definisi kolom secara dinamis
-    const columns = keys.map((key) => {
-        // Mapping nama header yang lebih ramah
-        let headerName = key.charAt(0).toUpperCase() + key.slice(1); // Kapitalisasi huruf pertama
-        if (key === "name") headerName = "Nama Tempat";
-        else if (key === "location") headerName = "Lokasi";
-        else if (key === "category") headerName = "Kategori";
-        else if (key === "id") headerName = "ID"; // Jika Anda ingin menampilkan ID
-
-        return {
-            field: key,
-            headerName,
-            filter: true, // Aktifkan filter teks
-            sortable: true, // Aktifkan sorting
-            resizable: true, // Aktifkan resizable kolom
-        };
-    });
+    const columns = [
+      {
+        headerName: "No",
+        valueGetter: (params: any) => params.node ? params.node.rowIndex + 1 : '',
+        filter: false,
+        sortable: false,
+        resizable: false,
+        minWidth: 60,
+        maxWidth: 80,
+      },
+      {
+        field: "nama",
+        headerName: "Nama Tempat",
+        filter: true,
+        sortable: true,
+        resizable: true,
+      },
+      {
+        field: "deskripsi",
+        headerName: "Deskripsi",
+        filter: true,
+        sortable: true,
+        resizable: true,
+      }
+    ];
 
     // Anda bisa menambahkan kolom aksi di sini jika diinginkan
-    // columns.push({
-    //   headerName: "Aksi",
-    //   cellRenderer: (params: any) => (
-    //     <div className="flex space-x-2">
-    //       <button className="text-blue-500 hover:text-blue-700">Edit</button>
-    //       <button className="text-red-500 hover:text-red-700">Hapus</button>
-    //     </div>
-    //   ),
-    //   minWidth: 120,
-    //   maxWidth: 150,
-    //   flex: 0,
-    //   sortable: false,
-    //   filter: false,
-    //   resizable: false,
-    // });
+    columns.push({
+      headerName: "Action",
+      cellRenderer: (params: any) => (
+        <div className="flex space-x-2">
+          <button
+            className="text-blue-500 hover:text-blue-700"
+            onClick={async () => {
+              const marker = params.data as PlaceMarker;
+              if (!API_BASE_URL || !user?.token) return;
+              const newNama = prompt("Edit Nama Tempat:", marker.nama);
+              if (newNama === null || newNama === marker.nama) return;
+              try {
+            const res = await fetch(`${API_BASE_URL}/api/markers/${marker.id}`, {
+              method: "PUT",
+              headers: {
+                'Authorization': `Bearer ${user.token}`,
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({ ...marker, nama: newNama }),
+            });
+            if (!res.ok) throw new Error("Gagal mengedit marker");
+            fetchPlacesData();
+              } catch (e) {
+            alert("Gagal mengedit marker");
+              }
+            }}
+          >
+            Edit
+          </button>
+          <button
+            className="text-red-500 hover:text-red-700"
+            onClick={async () => {
+              const marker = params.data as PlaceMarker;
+              if (!API_BASE_URL || !user?.token) return;
+              if (!confirm(`Hapus marker "${marker.nama}"?`)) return;
+              try {
+            const res = await fetch(`${API_BASE_URL}/api/markers/${marker.id}`, {
+              method: "DELETE",
+              headers: {
+                'Authorization': `Bearer ${user.token}`,
+              },
+            });
+            if (!res.ok) throw new Error("Gagal menghapus marker");
+            fetchPlacesData();
+              } catch (e) {
+            alert("Gagal menghapus marker");
+              }
+            }}
+          >
+            Hapus
+          </button>
+        </div>
+      ),
+      minWidth: 120,
+      maxWidth: 150,
+      flex: 0,
+      sortable: false,
+      filter: false,
+      resizable: false,
+    });
 
     return columns;
   }, [rowData]); // columnDefs akan dibuat ulang jika rowData berubah
@@ -173,7 +227,7 @@ const MarkersPage: React.FC = () => {
   // Tampilkan error jika gagal mengambil data
   if (placesDataError) {
     return (
-      <div className="text-center text-red-500 p-4 border border-red-300 bg-red-50 rounded-md max-w-2xl mx-auto my-10">
+      <div className="text-center text-red-500 border border-red-300 bg-red-50 rounded-md max-w-2xl mx-auto my-10">
         <p className="font-semibold">Error:</p>
         <p>{placesDataError}</p>
         <button
@@ -190,7 +244,7 @@ const MarkersPage: React.FC = () => {
   return (
     <div className="p-4 rounded-lg shadow-md">
       <h2 className="text-2xl font-bold mb-4 text-center text-gray-800">Daftar Tempat Tersimpan</h2>
-      <div className="ag-theme-alpine" style={{ height: 400, width: '100%' }}>
+      <div className="" style={{ height: 400, width: '100%' }}>
         <AgGridReact
           rowData={rowData} // Data yang akan ditampilkan di tabel
           columnDefs={columnDefs} // Definisi kolom

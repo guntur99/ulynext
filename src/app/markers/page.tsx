@@ -7,7 +7,6 @@ import { useAuth } from '@/components/AuthProvider'; // Import useAuth hook
 // Import AG Grid components dan styles
 import { ModuleRegistry, AllCommunityModule } from 'ag-grid-community';
 import { AgGridReact } from 'ag-grid-react';
-import "ag-grid-community/styles/ag-grid.css";
 import "ag-grid-community/styles/ag-theme-alpine.css";
 
 // Register AG Grid modules

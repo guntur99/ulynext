@@ -1,6 +1,6 @@
 "use client"; // Menandai komponen ini sebagai Client Component
 
-import React, { useEffect, useState, useRef } from 'react'; // Import useState
+import React, { useEffect, useState } from 'react'; // Import useState
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/components/AuthProvider'; // Import useAuth hook
 import TravelRouteMap from '@/components/TravelRouteMap'; // Import komponen peta
@@ -40,7 +40,7 @@ const HomePage: React.FC = () => {
   const [submitPlaceSuccess, setSubmitPlaceSuccess] = useState<string | null>(null);
 
   // State to trigger refresh of MarkersPage
-  const [refreshMarkers, setRefreshMarkers] = useState(false);
+//   const [refreshMarkers, setRefreshMarkers] = useState(false);
 
   // Ganti placeholder URL ini dengan URL API dasar Anda yang sebenarnya
   const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
@@ -145,7 +145,7 @@ const HomePage: React.FC = () => {
       const result = await response.json();
       console.log('Tempat berhasil ditambahkan:', result);
     // Trigger refresh of MarkersPage by toggling state
-    setRefreshMarkers((prev) => !prev);
+    // setRefreshMarkers((prev) => !prev);
       setSubmitPlaceSuccess("Tempat berhasil ditambahkan!");
       // Opsional: Reset form atau tutup modal setelah sukses
       setNewPlaceName('');
@@ -162,10 +162,14 @@ const HomePage: React.FC = () => {
                                  )}
                                </div>
 
-        
-    } catch (error: any) {
+
+    } catch (error: unknown) {
       console.error('Error adding new place:', error);
-      setSubmitPlaceError(`Terjadi kesalahan: ${error.message}`);
+      if (error instanceof Error) {
+        setSubmitPlaceError(`Terjadi kesalahan: ${error.message}`);
+      } else {
+        setSubmitPlaceError('Terjadi kesalahan yang tidak diketahui.');
+      }
     } finally {
       setIsSubmittingPlace(false);
     }
@@ -203,7 +207,7 @@ const HomePage: React.FC = () => {
       {/* Komponen MarkersPage (tabel daftar tempat) hanya untuk peran 'admin' */}
       {/* Komponen MarkersPage (tabel daftar tempat) hanya untuk peran 'admin' */}
       {isAuthenticated && user?.role === 'admin' && (
-        <MarkersPage refresh={refreshMarkers} />
+        <MarkersPage />
       )}
       <hr className="my-8 border-gray-300" />
 

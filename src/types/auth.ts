@@ -5,8 +5,10 @@
  */
 export interface User {
     id: string;
+    nama: string; // Ganti dengan nama yang sesuai
     username: string;
     email?: string; // Tambahkan properti lain jika ada
+    role?: string; // Tambahkan properti role jika ada
   }
   
   /**

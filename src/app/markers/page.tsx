@@ -47,9 +47,9 @@ const MarkersPage: React.FC = () => {
   // columnDefs akan diinisialisasi berdasarkan keys dari rowData pertama atau fallback default
   const columnDefs = useMemo(() => {
     // Ambil semua key unik dari rowData (jika ada data)
-    const keys = rowData.length > 0
-        ? Object.keys(rowData[0]).filter(key => key !== 'latitude' && key !== 'longitude') // Filter out coords if not needed in table
-        : ["name", "location", "category"]; // Fallback default jika data kosong
+    // const keys = rowData.length > 0
+    //     ? Object.keys(rowData[0]).filter(key => key !== 'latitude' && key !== 'longitude') // Filter out coords if not needed in table
+    //     : ["name", "location", "category"]; // Fallback default jika data kosong
 
     // Buat definisi kolom secara dinamis
     const columns = [
@@ -102,7 +102,7 @@ const MarkersPage: React.FC = () => {
             if (!res.ok) throw new Error("Gagal mengedit marker");
             fetchPlacesData();
               } catch (e) {
-            alert("Gagal mengedit marker");
+                alert("Gagal mengedit marker: ", e);
               }
             }}
           >

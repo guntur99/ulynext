@@ -16,8 +16,8 @@ ModuleRegistry.registerModules([AllCommunityModule]);
  */
 interface PlaceMarker {
   id: string; // Tambahkan ID untuk identifikasi unik
-  nama: string;
-  deskripsi: string;
+  name: string;
+  description: string;
   kategori: string;
   latitude?: number; // Tambahkan properti opsional untuk koordinat
   longitude?: number;
@@ -63,14 +63,14 @@ const MarkersPage: React.FC = () => {
         maxWidth: 80,
       },
       {
-        field: "nama",
+        field: "name",
         headerName: "Nama Tempat",
         filter: true,
         sortable: true,
         resizable: true,
       },
       {
-        field: "deskripsi",
+        field: "description",
         headerName: "Deskripsi",
         filter: true,
         sortable: true,
@@ -88,16 +88,16 @@ const MarkersPage: React.FC = () => {
             onClick={async () => {
               const marker = params.data as PlaceMarker;
               if (!API_BASE_URL || !user?.token) return;
-              const newNama = prompt("Edit Nama Tempat:", marker.nama);
-              if (newNama === null || newNama === marker.nama) return;
+              const newName = prompt("Edit Nama Tempat:", marker.name);
+              if (newName === null || newName === marker.name) return;
               try {
-            const res = await fetch(`${API_BASE_URL}/api/markers/${marker.id}`, {
+            const res = await fetch(`${API_BASE_URL}/markers/${marker.id}`, {
               method: "PUT",
               headers: {
                 'Authorization': `Bearer ${user.token}`,
                 'Content-Type': 'application/json',
               },
-              body: JSON.stringify({ ...marker, nama: newNama }),
+              body: JSON.stringify({ ...marker, name: newName }),
             });
             if (!res.ok) throw new Error("Gagal mengedit marker");
             fetchPlacesData();
@@ -113,9 +113,9 @@ const MarkersPage: React.FC = () => {
             onClick={async () => {
               const marker = params.data as PlaceMarker;
               if (!API_BASE_URL || !user?.token) return;
-              if (!confirm(`Hapus marker "${marker.nama}"?`)) return;
+              if (!confirm(`Hapus marker "${marker.name}"?`)) return;
               try {
-            const res = await fetch(`${API_BASE_URL}/api/markers/${marker.id}`, {
+            const res = await fetch(`${API_BASE_URL}/markers/${marker.id}`, {
               method: "DELETE",
               headers: {
                 'Authorization': `Bearer ${user.token}`,
@@ -191,7 +191,7 @@ const MarkersPage: React.FC = () => {
       }
 
       const data: PlaceMarker[] = await response.json();
-      console.log("Fetched places data:", data); // Debug log untuk melihat data yang diambil
+    //   console.log("Fetched places data:", data); // Debug log untuk melihat data yang diambil
 
       setRowData(data);
     } catch (error: any) {
@@ -243,7 +243,7 @@ const MarkersPage: React.FC = () => {
   return (
     <div className="p-4 rounded-lg shadow-md">
       <h2 className="text-2xl font-bold mb-4 text-center text-gray-800">Daftar Tempat Tersimpan</h2>
-      <div className="" style={{ height: 400, width: '100%' }}>
+      <div className="text-dark" style={{ height: 400, width: '100%' }}>
         <AgGridReact
           rowData={rowData} // Data yang akan ditampilkan di tabel
           columnDefs={columnDefs} // Definisi kolom

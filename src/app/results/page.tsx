@@ -1,92 +1,108 @@
 // src/app/results/page.tsx
 "use client";
 
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useTripData } from '@/context/TripDataContext';
 import { RecommendationResponse } from '@/types/interfaces';
 
 // Declare google as a global variable to avoid TypeScript errors
 declare const google: any;
 
+const LOCAL_STORAGE_KEY = 'lastTripData'; // Define a key for localStorage
+
 function ResultsPage() {
-  const { tripData, isLoadingTripData, tripDataError, setTripDataError } = useTripData();
+  const { tripData, isLoadingTripData, tripDataError, setTripData, setIsLoadingTripData, setTripDataError } = useTripData();
   const mapRef = useRef<HTMLDivElement>(null); // Ref for the map container
+  const [isGoogleMapsReady, setIsGoogleMapsReady] = useState(false);
 
+  // Effect 1: Handle loading/saving trip data to/from localStorage
   useEffect(() => {
-    if (!isLoadingTripData && !tripData && !tripDataError) {
-      setTripDataError("No trip data found. Please start a new search.");
+    // 1. Try to load data from localStorage on mount
+    if (!tripData && !isLoadingTripData) { // Only attempt to load if no data is currently in context and not already loading
+      try {
+        const storedData = localStorage.getItem(LOCAL_STORAGE_KEY);
+        if (storedData) {
+          const parsedData: RecommendationResponse = JSON.parse(storedData);
+          setTripData(parsedData);
+          setIsLoadingTripData(false); // Ensure loading is false
+          setTripDataError(null); // Clear any previous error
+          console.log("Trip data loaded from localStorage.");
+          return; // Exit early if data was loaded from storage
+        }
+      } catch (e) {
+        console.error("Failed to parse trip data from localStorage:", e);
+        // If localStorage data is corrupt, clear it
+        localStorage.removeItem(LOCAL_STORAGE_KEY);
+      }
     }
-  }, [tripData, isLoadingTripData, tripDataError, setTripDataError]);
 
+    // 2. Save data to localStorage whenever tripData in context changes and is not null
+    if (tripData) {
+      try {
+        localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(tripData));
+        console.log("Trip data saved to localStorage.");
+      } catch (e) {
+        console.error("Failed to save trip data to localStorage:", e);
+        setTripDataError("Could not save trip data locally. Browser storage might be full or blocked.");
+      }
+    }
+
+    // 3. If no data in context and no data in localStorage, set initial error
+    if (!tripData && !isLoadingTripData && !localStorage.getItem(LOCAL_STORAGE_KEY)) {
+      setTripDataError("No trip data found. Please start a new search from the planning page.");
+    }
+
+  }, [tripData, isLoadingTripData, setTripData, setIsLoadingTripData, setTripDataError]); // Depend on tripData and loading states
+
+  // Effect 2: Check for Google Maps API readiness
   useEffect(() => {
-    // Function to load Google Maps API script
-    const loadGoogleMapsScript = (callback: () => void) => {
-      if (document.getElementById('google-maps-script')) {
-        callback();
+    const checkGoogleMapsReady = setInterval(() => {
+      if (typeof google !== 'undefined' && google.maps && google.maps.geometry) {
+        setIsGoogleMapsReady(true);
+        clearInterval(checkGoogleMapsReady);
+      }
+    }, 100);
+
+    return () => clearInterval(checkGoogleMapsReady);
+  }, []); // Empty dependency array means this runs once on mount
+
+  // Effect 3: Initialize the map once Google Maps API is ready AND tripData is available
+  useEffect(() => {
+    if (isGoogleMapsReady && mapRef.current && tripData && tripData.main_route && tripData.main_route.routes.length > 0) {
+      const mainRoute = tripData.main_route.routes[0];
+      const polylinePoints = mainRoute.overview_polyline.points;
+
+      if (!polylinePoints) {
+        console.warn("No polyline points found for the main route.");
         return;
       }
-      const script = document.createElement('script');
-      script.id = 'google-maps-script';
-      // Replace 'YOUR_GOOGLE_MAPS_API_KEY' with your actual Google Maps API Key
-      // Ensure 'libraries=geometry' is included for polyline decoding
-      script.src = `https://maps.googleapis.com/maps/api/js?key=YOUR_GOOGLE_MAPS_API_KEY&libraries=geometry`;
-      script.async = true;
-      script.defer = true;
-      script.onload = () => callback();
-      script.onerror = () => {
-        console.error("Failed to load Google Maps script.");
-        setTripDataError("Failed to load map. Please check your internet connection or API key.");
-      };
-      document.head.appendChild(script);
-    };
 
-    // Initialize map once script is loaded and tripData is available
-    const initializeMap = () => {
-      if (mapRef.current && tripData && tripData.main_route && tripData.main_route.routes.length > 0) {
-        const mainRoute = tripData.main_route.routes[0];
-        const polylinePoints = mainRoute.overview_polyline.points;
+      const map = new google.maps.Map(mapRef.current, {
+        zoom: 10,
+        center: { lat: 0, lng: 0 },
+        mapTypeId: 'roadmap',
+        disableDefaultUI: false,
+      });
 
-        if (!polylinePoints) {
-          console.warn("No polyline points found for the main route.");
-          return;
-        }
+      const path = google.maps.geometry.encoding.decodePath(polylinePoints);
 
-        // Initialize the map
-        const map = new google.maps.Map(mapRef.current, {
-          zoom: 10,
-          center: { lat: 0, lng: 0 }, // Initial center, will be adjusted by bounds
-          mapTypeId: 'roadmap',
-          disableDefaultUI: false, // You can customize UI controls
-        });
+      const bounds = new google.maps.LatLngBounds();
+      path.forEach((latLng: any) => {
+        bounds.extend(latLng);
+      });
 
-        // Decode the polyline path
-        const path = google.maps.geometry.encoding.decodePath(polylinePoints);
+      const routePolyline = new google.maps.Polyline({
+        path: path,
+        geodesic: true,
+        strokeColor: '#4285F4',
+        strokeOpacity: 0.8,
+        strokeWeight: 5,
+        map: map,
+      });
 
-        // Create a LatLngBounds object to encompass the entire route
-        const bounds = new google.maps.LatLngBounds();
-        path.forEach((latLng: any) => {
-          bounds.extend(latLng);
-        });
-
-        // Draw the polyline on the map
-        const routePolyline = new google.maps.Polyline({
-          path: path,
-          geodesic: true,
-          strokeColor: '#4285F4', // Google Maps blue
-          strokeOpacity: 0.8,
-          strokeWeight: 5,
-          map: map,
-        });
-
-        // Fit the map to the bounds of the polyline
-        map.fitBounds(bounds);
-      }
-    };
-
-    if (tripData && tripData.main_route && tripData.main_route.routes.length > 0) {
-      loadGoogleMapsScript(initializeMap);
+      map.fitBounds(bounds);
     }
-  }, [tripData]); // Re-run effect if tripData changes
+  }, [isGoogleMapsReady, tripData]); // Re-run effect when script status or tripData changes
 
   if (isLoadingTripData) {
     return (
@@ -104,6 +120,7 @@ function ResultsPage() {
     );
   }
 
+  // Final check if tripData is still null after all loading attempts
   if (!tripData || !tripData.main_route || !tripData.main_route.routes || tripData.main_route.routes.length === 0) {
     return (
       <div className="flex justify-center items-center h-screen text-xl text-gray-700">
@@ -122,9 +139,13 @@ function ResultsPage() {
         <div
           ref={mapRef}
           className="w-full h-80 md:h-96 rounded-lg shadow-inner border border-gray-300"
-          style={{ minHeight: '300px' }} // Ensures map has a minimum height
+          style={{ minHeight: '300px' }}
         >
-          {/* Map will be rendered here */}
+          {!isGoogleMapsReady && (
+            <div className="flex items-center justify-center h-full text-gray-500">
+              Loading map... (Please ensure API key is correct and network is stable)
+            </div>
+          )}
         </div>
         {tripData.main_route.routes[0].url && (
           <p className="mt-4 text-center">
@@ -140,7 +161,7 @@ function ResultsPage() {
         )}
       </section>
 
-      {/* Main Route Details (original section modified to remove textarea) */}
+      {/* Main Route Details */}
       <section className="mb-8 p-6 bg-green-50 rounded-lg shadow-inner">
         <h2 className="text-2xl font-semibold mb-4 text-green-800">Main Route Details</h2>
         {tripData.main_route.routes[0].legs && tripData.main_route.routes[0].legs.length > 0 && (

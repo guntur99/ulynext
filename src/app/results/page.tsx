@@ -1,217 +1,219 @@
-// app/results/page.tsx
+// src/app/results/page.tsx
 "use client";
 
-import React, { useState, useEffect, FC } from 'react';
-import { useSearchParams } from 'next/navigation';
-import { useRouter } from 'next/navigation';
+import React, { useEffect, useRef } from 'react';
+import { useTripData } from '@/context/TripDataContext';
+import { RecommendationResponse } from '@/types/interfaces';
 
-// SECTION: TypeScript Type Definitions
-// Updated to precisely match the JSON structure from your screenshot.
+// Declare google as a global variable to avoid TypeScript errors
+declare const google: any;
 
-// Basic types for directions
-interface LatLng { lat: number; lng: number; }
-interface Distance { text: string; value: number; }
-interface Duration { text: string; value: number; }
-interface Step {
-  distance: Distance;
-  duration: Duration;
-  html_instructions: string;
-}
-interface Leg {
-  distance: Distance;
-  duration: Duration;
-  end_address: string;
-  start_address: string;
-  steps: Step[];
-}
-interface Route {
-  copyrights: string;
-  legs: Leg[];
-}
-
-// Structure for the main route directions
-interface DirectionsData {
-  geocoded_waypoints: object[];
-  routes: Route[];
-  status: string;
-}
-
-// Structure for the recommended shops
-interface ShopResult {
-  place_id: string;
-  name: string;
-}
-interface ReturnTripShopData {
-  results: ShopResult[];
-  status: string;
-}
-
-// The complete top-level response structure from your backend
-interface RecommendationResponse {
-  destination: string;
-  return_trip_plan: string;
-  main_route: DirectionsData;
-  return_trip_shop: ReturnTripShopData;
-}
-
-// SECTION: Sub-Components for Rendering
-
-// Renders a single direction step
-const DirectionStep: FC<{ step: Step; index: number }> = ({ step, index }) => (
-  <li className="py-4 border-b border-gray-200 last:border-b-0">
-    <div className="flex items-start space-x-4">
-      <div className="flex-shrink-0 w-8 h-8 bg-blue-500 text-white rounded-full flex items-center justify-center font-bold">
-        {index + 1}
-      </div>
-      <div className="flex-1">
-        <div className="text-gray-800" dangerouslySetInnerHTML={{ __html: step.html_instructions }} />
-        <div className="text-sm text-gray-500 mt-1">
-          <span>{step.distance.text}</span>
-          <span className="mx-2">·</span>
-          <span>{step.duration.text}</span>
-        </div>
-      </div>
-    </div>
-  </li>
-);
-
-// Renders a single recommended shop
-const RecommendedShop: FC<{ shop: ShopResult; index: number }> = ({ shop, index }) => (
-    <li className="p-4 border-b border-gray-200 last:border-b-0">
-        <p className="font-semibold text-gray-900">{index + 1}. {shop.name}</p>
-        <p className="text-xs text-gray-500 mt-1">Place ID: {shop.place_id}</p>
-    </li>
-);
-
-// SECTION: Main Page Component
-const ResultsPage = () => {
-  const searchParams = useSearchParams();
-  const router = useRouter();
-  const [recommendation, setRecommendation] = useState<RecommendationResponse | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+function ResultsPage() {
+  const { tripData, isLoadingTripData, tripDataError, setTripDataError } = useTripData();
+  const mapRef = useRef<HTMLDivElement>(null); // Ref for the map container
 
   useEffect(() => {
-    const dataString = searchParams.get('data');
-    if (dataString) {
-      try {
-        const parsedData: RecommendationResponse = JSON.parse(decodeURIComponent(dataString));
-        console.log("test: ", parsedData);
-        
-        
-        // **FIX**: Validate using the correct path from your screenshot: `main_route.routes`
-        if (parsedData && parsedData.main_route && parsedData.main_route.routes && parsedData.main_route.routes.length > 0) {
-          setRecommendation(parsedData);
-        } else {
-          throw new Error("The received data does not contain a valid 'main_route' object with routes.");
-        }
-      } catch (e: any) {
-        console.error("Failed to parse recommendation data from URL:", e);
-        setError(`There was an error reading your trip data. Details: ${e.message}`);
-      }
-    } else {
-      setError("No trip data found in the URL. Please start a new search.");
+    if (!isLoadingTripData && !tripData && !tripDataError) {
+      setTripDataError("No trip data found. Please start a new search.");
     }
-    
-    setIsLoading(false);
-  }, [searchParams]);
+  }, [tripData, isLoadingTripData, tripDataError, setTripDataError]);
 
-  if (isLoading) {
+  useEffect(() => {
+    // Function to load Google Maps API script
+    const loadGoogleMapsScript = (callback: () => void) => {
+      if (document.getElementById('google-maps-script')) {
+        callback();
+        return;
+      }
+      const script = document.createElement('script');
+      script.id = 'google-maps-script';
+      // Replace 'YOUR_GOOGLE_MAPS_API_KEY' with your actual Google Maps API Key
+      // Ensure 'libraries=geometry' is included for polyline decoding
+      script.src = `https://maps.googleapis.com/maps/api/js?key=YOUR_GOOGLE_MAPS_API_KEY&libraries=geometry`;
+      script.async = true;
+      script.defer = true;
+      script.onload = () => callback();
+      script.onerror = () => {
+        console.error("Failed to load Google Maps script.");
+        setTripDataError("Failed to load map. Please check your internet connection or API key.");
+      };
+      document.head.appendChild(script);
+    };
+
+    // Initialize map once script is loaded and tripData is available
+    const initializeMap = () => {
+      if (mapRef.current && tripData && tripData.main_route && tripData.main_route.routes.length > 0) {
+        const mainRoute = tripData.main_route.routes[0];
+        const polylinePoints = mainRoute.overview_polyline.points;
+
+        if (!polylinePoints) {
+          console.warn("No polyline points found for the main route.");
+          return;
+        }
+
+        // Initialize the map
+        const map = new google.maps.Map(mapRef.current, {
+          zoom: 10,
+          center: { lat: 0, lng: 0 }, // Initial center, will be adjusted by bounds
+          mapTypeId: 'roadmap',
+          disableDefaultUI: false, // You can customize UI controls
+        });
+
+        // Decode the polyline path
+        const path = google.maps.geometry.encoding.decodePath(polylinePoints);
+
+        // Create a LatLngBounds object to encompass the entire route
+        const bounds = new google.maps.LatLngBounds();
+        path.forEach((latLng: any) => {
+          bounds.extend(latLng);
+        });
+
+        // Draw the polyline on the map
+        const routePolyline = new google.maps.Polyline({
+          path: path,
+          geodesic: true,
+          strokeColor: '#4285F4', // Google Maps blue
+          strokeOpacity: 0.8,
+          strokeWeight: 5,
+          map: map,
+        });
+
+        // Fit the map to the bounds of the polyline
+        map.fitBounds(bounds);
+      }
+    };
+
+    if (tripData && tripData.main_route && tripData.main_route.routes.length > 0) {
+      loadGoogleMapsScript(initializeMap);
+    }
+  }, [tripData]); // Re-run effect if tripData changes
+
+  if (isLoadingTripData) {
     return (
-      <div className="flex justify-center items-center min-h-screen">
-        <h1 className="text-2xl font-bold text-gray-700">Loading your trip plan...</h1>
+      <div className="flex justify-center items-center h-screen text-xl text-gray-700">
+        <p>Loading trip recommendations...</p>
       </div>
     );
   }
 
-  if (error) {
+  if (tripDataError) {
     return (
-      <div className="container mx-auto p-8 text-center">
-        <h1 className="text-2xl font-bold text-red-600 mb-4">An Error Occurred</h1>
-        <p className="text-gray-600 mb-6">{error}</p>
-        <button
-          onClick={() => router.push('/')}
-          className="bg-blue-600 text-white px-6 py-2 rounded-lg shadow-md hover:bg-blue-700 transition-colors"
-        >
-          Start a New Search
-        </button>
+      <div className="flex justify-center items-center h-screen text-xl text-red-600">
+        <p>Error: {tripDataError}</p>
       </div>
     );
   }
-  
-  if (!recommendation) {
-    // This handles the case where data is null after loading, though it's mostly covered by the error state.
-    return <p>No recommendation data available.</p>
-  }
 
-  // Extract route and leg from the main_route object
-  const route = recommendation.main_route.routes[0];
-  const leg = route.legs[0];
+  if (!tripData || !tripData.main_route || !tripData.main_route.routes || tripData.main_route.routes.length === 0) {
+    return (
+      <div className="flex justify-center items-center h-screen text-xl text-gray-700">
+        <p>No recommendations found. Please go back and plan a trip.</p>
+      </div>
+    );
+  }
 
   return (
-    <div className="bg-gray-50 min-h-screen">
-      <main className="container mx-auto p-4 md:p-8">
-        <div className="bg-white rounded-lg shadow-md p-6">
-          {/* Button to go back to home */}
-          <button
-            onClick={() => router.push('/')}
-            className="mb-4 bg-gray-200 text-gray-800 px-4 py-2 rounded-lg shadow-sm hover:bg-gray-300 transition-colors flex items-center"
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
-              <path fillRule="evenodd" d="M9.707 16.707a1 1 0 01-1.414 0l-6-6a1 1 0 010-1.414l6-6a1 1 0 011.414 1.414L5.414 9H16a1 1 0 110 2H5.414l4.293 4.293a1 1 0 010 1.414z" clipRule="evenodd" />
-            </svg>
-            Back to Home
-          </button>
+    <div className="results-page-container p-4 md:p-8 max-w-4xl mx-auto">
+      <h1 className="text-3xl font-bold mb-6 text-center text-white">Your Trip Recommendation</h1>
 
-          {/* Header Section */}
-          <div className="pb-4 border-b border-gray-200">
-            <h1 className="text-3xl font-extrabold text-gray-900">Your Trip to {recommendation.destination}</h1>
-            <p className="mt-1 text-lg text-gray-600">
-              Total Distance: <span className="font-semibold text-blue-600">{leg.distance.text}</span> | 
-              Estimated Time: <span className="font-semibold text-blue-600">{leg.duration.text}</span>
-            </p>
-            <p className="text-sm text-gray-400 mt-2">{route.copyrights}</p>
-          </div>
-
-          {/* Start and End Points */}
-          <div className="py-4">
-            <div className="flex items-center space-x-3 mb-3">
-              <span className="w-4 h-4 rounded-full bg-green-500 ring-4 ring-green-100"></span>
-              <p className="font-medium text-gray-700">{leg.start_address}</p>
-            </div>
-            <div className="flex items-center space-x-3">
-              <span className="w-4 h-4 bg-red-500 ring-4 ring-red-100"></span>
-              <p className="font-medium text-gray-700">{leg.end_address}</p>
-            </div>
-          </div>
-
-          {/* Turn-by-Turn Directions */}
-          <div>
-            <h2 className="text-xl font-bold text-gray-800 mt-6 mb-2">Turn-by-Turn Directions</h2>
-            <ul className="list-none p-0">
-              {/* {leg.steps.map((step, index) => (
-                <DirectionStep key={index} step={step} index={index} />
-              ))} */}
-            </ul>
-          </div>
-          
-          {/* **NEW**: Display Recommended Shops */}
-          {recommendation.return_trip_shop && recommendation.return_trip_shop.results.length > 0 && (
-              <div className="mt-8 pt-6 border-t border-gray-200">
-                  <h2 className="text-xl font-bold text-gray-800 mb-2">
-                      Shop Recommendations for "{recommendation.return_trip_plan}"
-                  </h2>
-                  <ul className="list-none p-0 bg-blue-50 rounded-lg">
-                      {recommendation.return_trip_shop.results.map((shop, index) => (
-                          <RecommendedShop key={shop.place_id} shop={shop} index={index} />
-                      ))}
-                  </ul>
-              </div>
-          )}
+      {/* Map Section */}
+      <section className="mb-8 p-4 bg-gray-100 rounded-lg shadow-md">
+        <h2 className="text-2xl font-semibold mb-4 text-gray-800">Route Map</h2>
+        <div
+          ref={mapRef}
+          className="w-full h-80 md:h-96 rounded-lg shadow-inner border border-gray-300"
+          style={{ minHeight: '300px' }} // Ensures map has a minimum height
+        >
+          {/* Map will be rendered here */}
         </div>
-      </main>
+        {tripData.main_route.routes[0].url && (
+          <p className="mt-4 text-center">
+            <a
+              href={tripData.main_route.routes[0].url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-blue-600 hover:underline font-medium"
+            >
+              Open Route in Google Maps App
+            </a>
+          </p>
+        )}
+      </section>
+
+      {/* Main Route Details (original section modified to remove textarea) */}
+      <section className="mb-8 p-6 bg-green-50 rounded-lg shadow-inner">
+        <h2 className="text-2xl font-semibold mb-4 text-green-800">Main Route Details</h2>
+        {tripData.main_route.routes[0].legs && tripData.main_route.routes[0].legs.length > 0 && (
+          <div className="text-gray-700">
+            <p>Distance: <span className="font-medium">{tripData.main_route.routes[0].legs[0].distance.text}</span></p>
+            <p>Duration: <span className="font-medium">{tripData.main_route.routes[0].legs[0].duration.text}</span></p>
+          </div>
+        )}
+      </section>
+
+      {/* Trip Interpretation Section */}
+      {tripData.interpretation && (
+        <section className="mb-8 p-6 bg-blue-50 rounded-lg shadow-inner">
+          <h2 className="text-2xl font-semibold mb-4 text-blue-800">Trip Interpretation</h2>
+          <p className="text-lg text-gray-700">
+            Destination: <span className="font-medium">{tripData.interpretation.destination}</span>
+          </p>
+          {tripData.interpretation.stops_along_the_way && tripData.interpretation.stops_along_the_way.length > 0 && (
+            <div className="mt-4">
+              <h3 className="text-xl font-medium mb-2 text-blue-700">Stops Along The Way:</h3>
+              <ul className="list-disc list-inside text-gray-700 ml-5">
+                {tripData.interpretation.stops_along_the_way.map((stop, index) => (
+                  <li key={index}>{stop}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+          {tripData.interpretation.return_trip_plan && (
+            <p className="text-lg text-gray-700 mt-4">
+              Return Trip Plan: <span className="font-medium">{tripData.interpretation.return_trip_plan}</span>
+            </p>
+          )}
+        </section>
+      )}
+
+      {/* Suggested Stops Section */}
+      {tripData.suggested_stops && Object.keys(tripData.suggested_stops).length > 0 && (
+        <section className="mb-8 p-6 bg-yellow-50 rounded-lg shadow-inner">
+          <h2 className="text-2xl font-semibold mb-4 text-yellow-800">Suggested Stops</h2>
+          {Object.entries(tripData.suggested_stops).map(([category, data], index) => (
+            <div key={index} className="mb-4">
+              <h3 className="text-xl font-medium mb-2 text-yellow-700 capitalize">{category.replace(/_/g, ' ')}:</h3>
+              {data.results && data.results.length > 0 ? (
+                <ul className="list-disc list-inside text-gray-700 ml-5">
+                  {data.results.map((place, placeIndex) => (
+                    <li key={placeIndex}>
+                      <strong>{place.name}</strong> - {place.formatted_address} (Rating: {place.rating || 'N/A'})
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p>No {category.replace(/_/g, ' ')} stops found.</p>
+              )}
+            </div>
+          ))}
+        </section>
+      )}
+
+      {/* Return Trip Shops Section */}
+      {tripData.return_trip_shop && tripData.return_trip_shop.results && tripData.return_trip_shop.results.length > 0 && (
+        <section className="p-6 bg-red-50 rounded-lg shadow-inner">
+          <h2 className="text-2xl font-semibold mb-4 text-red-800">Return Trip Shops</h2>
+          <ul className="list-disc list-inside text-gray-700 ml-5">
+            {tripData.return_trip_shop.results.map((shop, index) => (
+              <li key={index}>
+                <strong>{shop.name}</strong> - {shop.formatted_address} (Rating: {shop.rating || 'N/A'})
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
     </div>
   );
-};
+}
 
 export default ResultsPage;

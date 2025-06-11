@@ -3,8 +3,9 @@
 
 import React, { useState, FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
-import { LatLng, RecommendationResponse } from '../../types/interfaces'; // Corrected path
-import { useAuth } from '@/hooks/useAuth'; // Assuming useAuth is in src/hooks/useAuth.ts
+import { LatLng, RecommendationResponse } from '../../types/interfaces';
+import { useAuth } from '@/hooks/useAuth';
+import { useTripData } from '../../context/TripDataContext'; // Import your new hook
 
 interface SearchInputProps {
   onSearchStart?: () => void;
@@ -16,8 +17,9 @@ const SearchInput: React.FC<SearchInputProps> = ({ onSearchStart, onSearchEnd })
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
-  
-  const { user, isAuthenticated } = useAuth(); 
+
+  const { user, isAuthenticated } = useAuth();
+  const { setTripData, setIsLoadingTripData, setTripDataError } = useTripData(); // Use the context
 
   const API_BASE_URL: string | undefined = process.env.NEXT_PUBLIC_API_BASE_URL;
 
@@ -27,8 +29,13 @@ const SearchInput: React.FC<SearchInputProps> = ({ onSearchStart, onSearchEnd })
     setError(null);
     onSearchStart?.();
 
+    // Reset trip data context state
+    setTripData(null);
+    setTripDataError(null);
+    setIsLoadingTripData(true);
+
     // Ensure user is authenticated and token is available
-    if (!isAuthenticated || !user || !user.token) { // Added user check
+    if (!isAuthenticated || !user || !user.token) {
         const errorMessage = "You must be logged in to plan a trip. Please log in.";
         setError(errorMessage);
         onSearchEnd?.(null, errorMessage);
@@ -67,6 +74,7 @@ const SearchInput: React.FC<SearchInputProps> = ({ onSearchStart, onSearchEnd })
       setError(errorMessage);
       onSearchEnd?.(null, errorMessage);
       setLoading(false);
+      setIsLoadingTripData(false); // Make sure to set loading to false
       return;
     }
 
@@ -75,6 +83,7 @@ const SearchInput: React.FC<SearchInputProps> = ({ onSearchStart, onSearchEnd })
       setError(errorMessage);
       onSearchEnd?.(null, errorMessage);
       setLoading(false);
+      setIsLoadingTripData(false); // Make sure to set loading to false
       return;
     }
 
@@ -83,45 +92,31 @@ const SearchInput: React.FC<SearchInputProps> = ({ onSearchStart, onSearchEnd })
         setError(errorMessage);
         onSearchEnd?.(null, errorMessage);
         setLoading(false);
+        setIsLoadingTripData(false); // Make sure to set loading to false
         return;
     }
 
     // --- Prepare the JSON payload ---
-    // If your Go backend expects 'origin' as a string "lat,lng":
     const requestBody = {
       query: prompt,
-      origin: `${currentLat},${currentLng}`, 
+      origin: `${currentLat},${currentLng}`,
     };
-
-    // If your Go backend expects 'origin_lat' and 'origin_lng' separately:
-    // const requestBody = {
-    //   query: prompt,
-    //   origin_lat: currentLat,
-    //   origin_lng: currentLng,
-    // };
-
-    // If your Go backend expects 'origin' to be a string name:
-    // const requestBody = {
-    //   query: prompt,
-    //   origin: "My Current Location", // Or from a separate input field
-    // };
-
 
     try {
       const response = await fetch(`${API_BASE_URL}/plan-trip`, {
         method: 'POST',
         headers: {
-            'Authorization': `Bearer ${user.token}`, // user.token is guaranteed to exist by checks above
-            'Content-Type': 'application/json', // This is correct for sending JSON
+            'Authorization': `Bearer ${user.token}`,
+            'Content-Type': 'application/json',
         },
-        body: JSON.stringify(requestBody), // This is correct for sending JSON
+        body: JSON.stringify(requestBody),
       });
 
       if (!response.ok) {
         let errorMessage = `Backend error! Status: ${response.status}, Message: ${response.statusText}`;
         try {
             const errorData = await response.json();
-            errorMessage = errorData.message || errorMessage; // Use backend message if available
+            errorMessage = errorData.message || errorMessage;
         } catch (parseError) {
             console.warn("Could not parse backend error response as JSON:", parseError);
         }
@@ -131,19 +126,23 @@ const SearchInput: React.FC<SearchInputProps> = ({ onSearchStart, onSearchEnd })
       const data: RecommendationResponse = await response.json();
       console.log('Recommendation received:', data);
 
-      // Redirect to /results page with data in query params
-      router.push(`/results?data=${encodeURIComponent(JSON.stringify(data))}`);
-      // Using encodeURIComponent is safer for complex JSON in URL
-      
+      // --- Store the data in context instead of URL query params ---
+      setTripData(data); // Save the data to the context
+
+      // Redirect to /results page
+      router.push(`/results`);
+
       onSearchEnd?.(data, null);
 
     } catch (err: any) {
       console.error("Failed to fetch recommendation:", err);
       const errorMessage = `An error occurred during search: ${err.message}`;
       setError(errorMessage);
+      setTripDataError(errorMessage); // Store error in context
       onSearchEnd?.(null, errorMessage);
     } finally {
       setLoading(false);
+      setIsLoadingTripData(false); // Ensure loading state is false in context
     }
   };
 

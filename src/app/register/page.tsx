@@ -30,11 +30,16 @@ const RegisterPage: React.FC = () => {
     );
   }
 
-  // Tampilkan form registrasi jika belum terautentikasi
-  return (
-    <div className="flex justify-center items-center min-h-[calc(100vh-128px)] py-8">
-      <RegisterForm />
-    </div>
+    // Jangan tampilkan apapun jika sudah terautentikasi (hindari flicker)
+    if (isAuthenticated) {
+        return null;
+    }
+
+    // Tampilkan form registrasi jika belum terautentikasi
+    return (
+        <div className="flex justify-center items-center min-h-[calc(100vh-128px)] py-8">
+        <RegisterForm />
+        </div>
   );
 };
 

@@ -5,8 +5,11 @@
  */
 export interface User {
     id: string;
+    name: string; // Ganti dengan name yang sesuai
     username: string;
     email?: string; // Tambahkan properti lain jika ada
+    role?: string; // Tambahkan properti role jika ada
+    token?: string;
   }
   
   /**

@@ -30,12 +30,17 @@ const LoginPage: React.FC = () => {
     );
   }
 
-  // Tampilkan form login jika belum terautentikasi
-  return (
-    <div className="flex justify-center items-center min-h-[calc(100vh-128px)] py-8">
-      <LoginForm />
-    </div>
-  );
+    // Jangan tampilkan apapun jika sudah terautentikasi (hindari flicker)
+    if (isAuthenticated) {
+        return null;
+    }
+
+    // Tampilkan form login jika belum terautentikasi
+    return (
+        <div className="flex justify-center items-center min-h-[calc(100vh-128px)] py-8">
+            <LoginForm />
+        </div>
+    );
 };
 
 export default LoginPage;

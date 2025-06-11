@@ -1,55 +1,102 @@
 // src/app/page.tsx
-"use client"; // Menandai komponen ini sebagai Client Component
+"use client"; // Mark this component as a Client Component
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/components/AuthProvider'; // Import useAuth hook
-import TravelRouteMap from '@/components/TravelRouteMap'; // Import komponen peta
+// import TravelRouteMap from '@/components/TravelRouteMap'; // Import TravelRouteMap component
+// import MarkersPage from '@/app/markers/page'; // Import MarkersPage component (assuming it's a client component)
+import AddPlaceModal from '@/components/AddPlaceModal'; // Import the new AddPlaceModal component
+import HomeContentUser from '@/components/HomeContentUser'; // Component for User role content
+import HomeContentAdmin from '@/components/HomeContentAdmin'; // Component for Admin role content
 
 /**
- * Halaman utama aplikasi.
- * Menampilkan konten yang berbeda tergantung status autentikasi pengguna.
+ * Main application page.
+ * Displays different content based on user authentication status and role.
  */
 const HomePage: React.FC = () => {
-  const { isAuthenticated, user, isLoading, logout } = useAuth(); // Dapatkan state dan fungsi dari konteks autentikasi
+  // Get state and functions from the authentication context
+  const { isAuthenticated, user, isLoading, logout } = useAuth();
   const router = useRouter();
+  
 
-  // Efek untuk mengarahkan pengguna jika tidak terautentikasi dan loading selesai
+  // State to control visibility of the "Add Place" modal
+  const [isAddPlaceModalOpen, setIsAddPlaceModalOpen] = useState<boolean>(false);
+  
+  // State to trigger refresh of MarkersPage data (e.g., when a new marker is added)
+  const [markerRefreshKey, setMarkerRefreshKey] = useState<number>(0); 
+
+  // Effect to redirect users if unauthenticated or handle missing roles
   useEffect(() => {
+    // If loading is complete and the user is not authenticated, redirect to the login page.
     if (!isLoading && !isAuthenticated) {
-      router.push('/login'); // Arahkan ke halaman login jika belum login
+      router.push('/login');
+      return; 
     }
-  }, [isLoading, isAuthenticated, router]);
 
-  // Tampilkan loading state saat autentikasi sedang dicek
+    // If loading is complete, user is authenticated, but the user object or role is missing.
+    // This indicates a data issue or an invalid state.
+    // The best action is to log out and redirect back to login.
+    if (!isLoading && isAuthenticated && !user?.role) {
+        console.warn("User authenticated but role is missing or undefined. Logging out and redirecting to login page.");
+        logout(); 
+        router.push('/login'); 
+        return; 
+    }
+  }, [isLoading, isAuthenticated, router, user, logout]);
+
+  // Function to open the "Add Place" modal
+  const handleAddPlaceClick = () => {
+    setIsAddPlaceModalOpen(true);
+  };
+
+  // Function to close the "Add Place" modal
+  const handleCloseAddPlaceModal = () => {
+    setIsAddPlaceModalOpen(false);
+  };
+
+  // Callback function to be called when a new place is successfully added
+  const handlePlaceAdded = () => {
+    // Increment the key to force re-render/re-fetch of MarkersPage if it uses this key
+    setMarkerRefreshKey(prevKey => prevKey + 1); 
+    handleCloseAddPlaceModal(); // Close the modal after successful addition
+  };
+
+  // Display loading state while authentication is being checked
   if (isLoading) {
     return (
       <div className="flex justify-center items-center h-screen">
-        <p className="text-lg font-semibold">Memuat...</p>
+        <p className="text-lg font-semibold">Loading...</p>
       </div>
     );
   }
 
-  // Tampilkan konten halaman jika sudah terautentikasi
+  // Display page content if authenticated
   return (
-    <div className="home-container bg-white p-8 rounded-lg shadow-md">
+    <div className="home-container bg-white p-8 rounded-lg shadow-md max-w-4xl mx-auto my-10">
       <h1 className="text-3xl font-bold mb-4 text-center text-blue-700">
-        Selamat datang, {user?.username || 'Pengguna'}!
+        Welcome, {user?.username || 'User'}!
       </h1>
-      <p className="text-lg text-center mb-6 text-gray-600">Ini adalah halaman utama Anda.</p>
-      <div className="flex justify-center mb-10">
-        <button
-          onClick={logout}
-          className="bg-red-600 text-white px-6 py-3 rounded-lg shadow-md hover:bg-red-700 transition-colors duration-300 font-semibold"
-        >
-          Logout
-        </button>
-      </div>
+      <p className="text-lg text-center mb-6 text-gray-600">This is your main page.</p>
+      
+      {/* Conditionally render content based on user role */}
+      {isAuthenticated && user?.role === 'admin' && (
+        <HomeContentAdmin 
+          onAddPlaceClick={handleAddPlaceClick} 
+          markerRefreshKey={markerRefreshKey} 
+        />
+      )}
 
-      <hr className="my-8 border-gray-300" />
+      {isAuthenticated && user?.role === 'user' && (
+        <HomeContentUser />
+      )}
 
-      <h2 className="text-2xl font-bold mb-6 text-center text-gray-800">Rencanakan Perjalanan Anda</h2>
-      <TravelRouteMap />
+      {/* Add Place Modal, rendered only when isOpen is true */}
+      <AddPlaceModal
+        isOpen={isAddPlaceModalOpen}
+        onClose={handleCloseAddPlaceModal}
+        onPlaceAdded={handlePlaceAdded}
+      />
     </div>
   );
 };

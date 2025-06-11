@@ -24,6 +24,10 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   useEffect(() => {
     if (typeof window !== 'undefined') { // Pastikan kode berjalan di sisi klien
       const storedToken = localStorage.getItem('jwt_token');
+        // Jika ada token di localStorage, decode token tersebut
+        // console.log(storedToken);
+        
+        // setAuthState((prev) => ({ ...prev, isLoading: true })); // Set isLoading true saat memuat
       if (storedToken) {
         try {
           const decoded: any = jwtDecode(storedToken);
@@ -32,6 +36,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             id: decoded.sub,
             username: decoded.username || decoded.sub,
             email: decoded.email || undefined,
+            role: decoded.role || undefined, // Tambahkan role jika ada
+            token: storedToken, // Simpan token di user untuk akses mudah
           };
           setAuthState({
             token: storedToken,
@@ -71,6 +77,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           id: decoded.sub,
           username: decoded.username || decoded.sub,
           email: decoded.email || undefined,
+          role: decoded.role || undefined, // Tambahkan role jika ada
+          token: newToken
         };
         setAuthState({
           token: newToken,

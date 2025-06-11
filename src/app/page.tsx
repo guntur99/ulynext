@@ -7,8 +7,9 @@ import { useAuth } from '@/components/AuthProvider'; // Import useAuth hook
 // import TravelRouteMap from '@/components/TravelRouteMap'; // Import TravelRouteMap component
 // import MarkersPage from '@/app/markers/page'; // Import MarkersPage component (assuming it's a client component)
 import AddPlaceModal from '@/components/AddPlaceModal'; // Import the new AddPlaceModal component
-import HomeContentUser from '@/components/HomeContentUser'; // Component for User role content
+// import HomeContentUser from '@/components/HomeContentUser'; // Component for User role content
 import HomeContentAdmin from '@/components/HomeContentAdmin'; // Component for Admin role content
+import SearchInput from '@/components/plantrip/SearchInput'; // Import the new SearchInput component
 
 /**
  * Main application page.
@@ -66,7 +67,7 @@ const HomePage: React.FC = () => {
   if (isLoading) {
     return (
       <div className="flex justify-center items-center h-screen">
-        <p className="text-lg font-semibold">Loading...</p>
+        <p className="text-lg font-semibold text-gray-700">Loading application...</p>
       </div>
     );
   }
@@ -88,7 +89,10 @@ const HomePage: React.FC = () => {
       )}
 
       {isAuthenticated && user?.role === 'user' && (
-        <HomeContentUser />
+        <>
+            {/* <HomeContentUser /> */}
+            <SearchInput />
+        </>
       )}
 
       {/* Add Place Modal, rendered only when isOpen is true */}

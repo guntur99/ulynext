@@ -43,10 +43,10 @@ const LoginForm: React.FC = () => {
 
   return (
     <div className="auth-container">
-      <h2 className="text-2xl font-bold mb-6 text-center text-gray-800">Login</h2>
+      <h2 className="text-2xl text-white font-bold mb-6 text-center">Login</h2>
       <form onSubmit={handleSubmit} className="space-y-4">
         <div className="form-group">
-          <label htmlFor="username" className="block text-sm font-medium text-gray-700 mb-1">Username:</label>
+          <label htmlFor="username" className="block text-sm font-medium text-white mb-1">Username:</label>
           <input
             type="text"
             id="username"
@@ -57,7 +57,7 @@ const LoginForm: React.FC = () => {
           />
         </div>
         <div className="form-group">
-          <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">Password:</label>
+          <label htmlFor="password" className="block text-sm font-medium text-white mb-1">Password:</label>
           <input
             type="password"
             id="password"
@@ -79,7 +79,7 @@ const LoginForm: React.FC = () => {
           {message}
         </p>
       )}
-      <p className="mt-4 text-center text-gray-600">
+      <p className="mt-4 text-center text-white">
         Belum punya akun? <a href="/register" className="text-blue-600 hover:underline">Daftar di sini</a>
       </p>
     </div>

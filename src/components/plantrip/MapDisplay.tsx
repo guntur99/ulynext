@@ -1,67 +1,98 @@
 // src/components/plantrip/MapDisplay.tsx
-// ... existing imports ...
+"use client";
+
+import React, { useState, useEffect, useCallback } from 'react';
+// FIX: Impor komponen yang dibutuhkan dari React dan Google Maps API
+import { GoogleMap, LoadScript, Marker, InfoWindow, Polyline } from '@react-google-maps/api';
 import { LatLng, Vendor } from '../../types/interfaces';
+
+// --- Konfigurasi dasar untuk peta ---
+const mapContainerStyle = {
+  width: '100%',
+  height: '100%',
+};
+
+const googleMapsApiKey = process.env.NEXT_PUBLIC_Maps_API_KEY || "";
+// ------------------------------------
 
 interface MapDisplayProps {
   route: LatLng[];
   vendors: Vendor[];
   defaultCenter?: LatLng;
   zoom?: number;
-  selectedVendor?: Vendor | null; // <-- ADD THIS PROP
+  selectedVendor?: Vendor | null;
 }
 
-const MapDisplay: React.FC<MapDisplayProps> = ({ route, vendors, defaultCenter, zoom = 14, selectedVendor: propSelectedVendor }) => {
-  const [map, setMap] = useState<google.maps.Map | null>(null);
-  // Use internal state for InfoWindow if no prop is passed, or override with prop
+const MapDisplay: React.FC<MapDisplayProps> = ({
+  route,
+  vendors,
+  defaultCenter = { lat: -6.2088, lng: 106.8456 }, // Fallback ke Jakarta
+  zoom = 12,
+  selectedVendor: propSelectedVendor,
+}) => {
+  // FIX: State 'map' dan 'setMap' yang tidak digunakan telah dihapus.
   const [internalSelectedVendor, setInternalSelectedVendor] = useState<Vendor | null>(null);
 
-  // Effect to update internal selected vendor if prop changes
   useEffect(() => {
-    setInternalSelectedVendor(propSelectedVendor);
+    setInternalSelectedVendor(propSelectedVendor || null);
   }, [propSelectedVendor]);
 
-  // Determine which vendor's info window should be open
-  const currentSelectedVendor = propSelectedVendor || internalSelectedVendor;
-
-  // ... (rest of your MapDisplay.tsx code) ...
+  const currentSelectedVendor = propSelectedVendor !== undefined ? propSelectedVendor : internalSelectedVendor;
 
   const handleMarkerClick = useCallback((vendor: Vendor) => {
-    setInternalSelectedVendor(vendor); // Update internal state on marker click
-    // If you want to notify parent, you could add an `onMarkerClick` prop
+    setInternalSelectedVendor(vendor);
   }, []);
 
   const handleInfoWindowClose = useCallback(() => {
-    setInternalSelectedVendor(null); // Clear internal state on close
+    setInternalSelectedVendor(null);
   }, []);
 
+  if (!googleMapsApiKey) {
+    return <div className="p-4 text-center text-red-500">Kunci API Google Maps tidak ditemukan.</div>;
+  }
+
   return (
-    <div className="map-display-container">
+    <div className="map-display-container" style={{ height: '500px', width: '100%' }}>
+      {/* FIX: Komponen sekarang sudah terdefinisi karena diimpor */}
       <LoadScript googleMapsApiKey={googleMapsApiKey}>
         <GoogleMap
-          // ... existing props ...
+          mapContainerStyle={mapContainerStyle}
+          center={defaultCenter} // FIX: Prop 'defaultCenter' sekarang digunakan
+          zoom={zoom}             // FIX: Prop 'zoom' sekarang digunakan
         >
-          {/* Render Route Polyline */}
-          {/* ... */}
+          {/* Render Rute Perjalanan */}
+          {/* FIX: Prop 'route' sekarang digunakan untuk menggambar Polyline */}
+          {route && route.length > 0 && (
+            <Polyline
+              path={route}
+              options={{
+                strokeColor: '#FF0000',
+                strokeOpacity: 0.8,
+                strokeWeight: 3,
+              }}
+            />
+          )}
 
-          {/* Render Vendor Markers */}
+          {/* Render Penanda (Marker) untuk setiap Vendor */}
           {vendors.map((vendor) => (
             <Marker
-              key={vendor.id || `<span class="math-inline">\{vendor\.name\}\-</span>{vendor.latitude}-${vendor.longitude}`}
+              key={vendor.id || `${vendor.name}-${vendor.latitude}`}
               position={{ lat: vendor.latitude, lng: vendor.longitude }}
               title={vendor.name}
               onClick={() => handleMarkerClick(vendor)}
-              // You might add an icon change here if this vendor is the selected one
-              // icon={currentSelectedVendor && currentSelectedVendor.id === vendor.id ? { /* selected icon */ } : { /* default icon */ }}
             />
           ))}
 
-          {/* Render InfoWindow for currentSelectedVendor */}
+          {/* Render InfoWindow untuk vendor yang dipilih */}
           {currentSelectedVendor && (
             <InfoWindow
               position={{ lat: currentSelectedVendor.latitude, lng: currentSelectedVendor.longitude }}
               onCloseClick={handleInfoWindowClose}
             >
-              {/* ... InfoWindow content ... */}
+              <div className="p-1">
+                <h3 className="font-bold">{currentSelectedVendor.name}</h3>
+                <p>{currentSelectedVendor.address}</p>
+              </div>
             </InfoWindow>
           )}
         </GoogleMap>

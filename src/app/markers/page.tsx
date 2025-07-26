@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/components/AuthProvider'; // Import useAuth hook
 
 // Import AG Grid components dan styles
-import { ModuleRegistry, AllCommunityModule } from 'ag-grid-community';
+import { ModuleRegistry, AllCommunityModule, ValueGetterParams, ICellRendererParams } from 'ag-grid-community'; // Import ICellRendererParams
 import { AgGridReact } from 'ag-grid-react';
 import "ag-grid-community/styles/ag-theme-alpine.css";
 
@@ -43,66 +43,93 @@ const MarkersPage: React.FC = () => {
   // Pastikan NEXT_PUBLIC_API_BASE_URL sudah diatur di file .env.local Anda
   const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
 
-  // Definisikan kolom untuk AG Grid menggunakan useMemo
-  // columnDefs akan diinisialisasi berdasarkan keys dari rowData pertama atau fallback default
-  const columnDefs = useMemo(() => {
-    // Ambil semua key unik dari rowData (jika ada data)
-    // const keys = rowData.length > 0
-    //     ? Object.keys(rowData[0]).filter(key => key !== 'latitude' && key !== 'longitude') // Filter out coords if not needed in table
-    //     : ["name", "location", "category"]; // Fallback default jika data kosong
+  // Fungsi untuk mengambil data places/markers dari API
+  // useCallback digunakan agar fungsi ini tidak dibuat ulang di setiap render, kecuali dependensinya berubah.
+  const fetchPlacesData = useCallback(async () => {
+    setIsPlacesDataLoading(true);
+    setPlacesDataError(null);
 
-    // Buat definisi kolom secara dinamis
+    if (!API_BASE_URL) {
+      setPlacesDataError("API Base URL tidak dikonfigurasi. Harap set NEXT_PUBLIC_API_BASE_URL.");
+      setIsPlacesDataLoading(false);
+      return;
+    }
+
+    try {
+      const token = user?.token;
+      if (!token) {
+        setPlacesDataError("Token tidak ditemukan. Pastikan Anda sudah login.");
+        setIsPlacesDataLoading(false);
+        return;
+      }
+
+      const response = await fetch(`${API_BASE_URL}/markers`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        if (response.status === 401) {
+          router.push('/login');
+          return;
+        }
+        const errorData = await response.json();
+        throw new Error(errorData.message || `Gagal mengambil data: ${response.statusText}`);
+      }
+
+      const data: PlaceMarker[] = await response.json();
+      setRowData(data);
+    } catch (error) {
+      console.error("Error fetching places data:", error);
+      setPlacesDataError(`Gagal memuat data tempat: ${error}`);
+    } finally {
+      setIsPlacesDataLoading(false);
+    }
+  }, [API_BASE_URL, user, router]); // Dependensi untuk useCallback
+
+  // Definisikan kolom untuk AG Grid menggunakan useMemo
+  const columnDefs = useMemo(() => {
     const columns = [
       {
         headerName: "No",
-        valueGetter: (params: any) => params.node ? params.node.rowIndex + 1 : '',
+        valueGetter: (params: ValueGetterParams<PlaceMarker>) => params.node?.rowIndex != null ? params.node.rowIndex + 1 : '',
         filter: false,
         sortable: false,
         resizable: false,
         minWidth: 60,
         maxWidth: 80,
       },
-      {
-        field: "name",
-        headerName: "Nama Tempat",
-        filter: true,
-        sortable: true,
-        resizable: true,
-      },
-      {
-        field: "description",
-        headerName: "Deskripsi",
-        filter: true,
-        sortable: true,
-        resizable: true,
-      }
+      { field: "name", headerName: "Nama Tempat", filter: true, sortable: true, resizable: true },
+      { field: "description", headerName: "Deskripsi", filter: true, sortable: true, resizable: true }
     ];
 
-    // Anda bisa menambahkan kolom aksi di sini jika diinginkan
     columns.push({
       headerName: "Action",
-      cellRenderer: (params: any) => (
+      // FIX 1: Mengganti 'any' dengan 'ICellRendererParams<PlaceMarker>'
+      cellRenderer: (params: ICellRendererParams<PlaceMarker>) => (
         <div className="flex space-x-2">
           <button
             className="text-blue-500 hover:text-blue-700"
             onClick={async () => {
-              const marker = params.data as PlaceMarker;
-              if (!API_BASE_URL || !user?.token) return;
+              const marker = params.data;
+              if (!marker || !API_BASE_URL || !user?.token) return;
               const newName = prompt("Edit Nama Tempat:", marker.name);
               if (newName === null || newName === marker.name) return;
               try {
-            const res = await fetch(`${API_BASE_URL}/markers/${marker.id}`, {
-              method: "PUT",
-              headers: {
-                'Authorization': `Bearer ${user.token}`,
-                'Content-Type': 'application/json',
-              },
-              body: JSON.stringify({ ...marker, name: newName }),
-            });
-            if (!res.ok) throw new Error("Gagal mengedit marker");
-            fetchPlacesData();
+                const res = await fetch(`${API_BASE_URL}/markers/${marker.id}`, {
+                  method: "PUT",
+                  headers: {
+                    'Authorization': `Bearer ${user.token}`,
+                    'Content-Type': 'application/json',
+                  },
+                  body: JSON.stringify({ ...marker, name: newName }),
+                });
+                if (!res.ok) throw new Error("Gagal mengedit marker");
+                fetchPlacesData();
               } catch (e) {
-                alert("Gagal mengedit marker: ", e);
+                alert("Gagal mengedit marker: " + e);
               }
             }}
           >
@@ -111,20 +138,20 @@ const MarkersPage: React.FC = () => {
           <button
             className="text-red-500 hover:text-red-700"
             onClick={async () => {
-              const marker = params.data as PlaceMarker;
-              if (!API_BASE_URL || !user?.token) return;
+              const marker = params.data;
+              if (!marker || !API_BASE_URL || !user?.token) return;
               if (!confirm(`Hapus marker "${marker.name}"?`)) return;
               try {
-            const res = await fetch(`${API_BASE_URL}/markers/${marker.id}`, {
-              method: "DELETE",
-              headers: {
-                'Authorization': `Bearer ${user.token}`,
-              },
-            });
-            if (!res.ok) throw new Error("Gagal menghapus marker");
-            fetchPlacesData();
+                const res = await fetch(`${API_BASE_URL}/markers/${marker.id}`, {
+                  method: "DELETE",
+                  headers: {
+                    'Authorization': `Bearer ${user.token}`,
+                  },
+                });
+                if (!res.ok) throw new Error("Gagal menghapus marker");
+                fetchPlacesData();
               } catch (e) {
-            alert("Gagal menghapus marker");
+                alert("Gagal menghapus marker" + e);
               }
             }}
           >
@@ -141,81 +168,29 @@ const MarkersPage: React.FC = () => {
     });
 
     return columns;
-  }, [rowData]); // columnDefs akan dibuat ulang jika rowData berubah
+  // FIX 2: Menambahkan dependensi yang hilang (API_BASE_URL, user, fetchPlacesData)
+  // dan menghapus dependensi 'rowData' yang tidak relevan.
+  }, [API_BASE_URL, user, fetchPlacesData]);
 
   // DefaultColDef untuk mengatur properti default untuk semua kolom
   const defaultColDef = useMemo(() => ({
-    flex: 1, // Setiap kolom akan mengisi ruang yang tersedia secara merata
-    minWidth: 100, // Lebar minimum kolom
-    floatingFilter: true, // Tampilkan filter di bawah header kolom
+    flex: 1,
+    minWidth: 100,
+    floatingFilter: true,
   }), []);
 
-  // Fungsi untuk mengambil data places/markers dari API
-  const fetchPlacesData = useCallback(async () => {
-    setIsPlacesDataLoading(true);
-    setPlacesDataError(null);
-
-    // Pastikan API_BASE_URL tersedia
-    if (!API_BASE_URL) {
-      setPlacesDataError("API Base URL tidak dikonfigurasi. Harap set NEXT_PUBLIC_API_BASE_URL.");
-      setIsPlacesDataLoading(false);
-      return;
-    }
-
-    try {
-      // Ambil token dari user (misal user.token, sesuaikan dengan struktur user Anda)
-      // Asumsi `user` memiliki properti `token`
-      const token = user?.token;
-        if (!token) {
-            setPlacesDataError("Token tidak ditemukan. Pastikan Anda sudah login.");
-            setIsPlacesDataLoading(false);
-            return;
-        }
-
-      const response = await fetch(`${API_BASE_URL}/markers`, {
-        headers: {
-          // Pastikan token ada sebelum menambahkannya ke header
-          'Authorization': token ? `Bearer ${token}` : '',
-          'Content-Type': 'application/json',
-        },
-      });
-
-      if (!response.ok) {
-        // Tangani respons non-OK, misalnya 401 Unauthorized
-        if (response.status === 401) {
-            router.push('/login'); // Arahkan ke login jika token tidak valid
-            return;
-        }
-        const errorData = await response.json();
-        throw new Error(errorData.message || `Gagal mengambil data: ${response.statusText}`);
-      }
-
-      const data: PlaceMarker[] = await response.json();
-    //   console.log("Fetched places data:", data); // Debug log untuk melihat data yang diambil
-
-      setRowData(data);
-    } catch (error: any) {
-      console.error("Error fetching places data:", error);
-      setPlacesDataError(`Gagal memuat data tempat: ${error.message}`);
-    } finally {
-      setIsPlacesDataLoading(false);
-    }
-  }, [API_BASE_URL, user, router]); // Tambahkan `user` dan `router` ke dependensi
-
-  // Efek untuk mengarahkan pengguna jika tidak terautentikasi dan loading selesai
-  // Dan untuk memicu pengambilan data saat komponen dimuat atau status autentikasi berubah
+  // Efek untuk mengarahkan pengguna dan memuat data
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
-      router.push('/login'); // Arahkan ke halaman login jika belum login
+      router.push('/login');
     }
-    // Jika autentikasi sudah selesai dan pengguna terautentikasi, ambil data tempat
     if (!isLoading && isAuthenticated) {
       fetchPlacesData();
     }
   }, [isLoading, isAuthenticated, router, fetchPlacesData]);
 
-  // Tampilkan loading state saat autentikasi sedang dicek
-  if (isLoading || isPlacesDataLoading) { // Gabungkan loading autentikasi dan loading data
+  // Tampilkan loading state
+  if (isLoading || isPlacesDataLoading) {
     return (
       <div className="flex justify-center items-center h-screen">
         <p className="text-lg font-semibold">Memuat data tempat...</p>
@@ -223,7 +198,7 @@ const MarkersPage: React.FC = () => {
     );
   }
 
-  // Tampilkan error jika gagal mengambil data
+  // Tampilkan error jika gagal
   if (placesDataError) {
     return (
       <div className="text-center text-red-500 border border-red-300 bg-red-50 rounded-md max-w-2xl mx-auto my-10">
@@ -239,24 +214,23 @@ const MarkersPage: React.FC = () => {
     );
   }
 
-  // Tampilkan tabel jika data sudah dimuat dan tidak ada error
+  // Tampilkan tabel
   return (
     <div className="p-4 rounded-lg shadow-md">
       <h2 className="text-2xl font-bold mb-4 text-center text-gray-800">Daftar Tempat Tersimpan</h2>
-      <div className="text-dark" style={{ height: 400, width: '100%' }}>
+      <div className="ag-theme-alpine text-dark" style={{ height: 400, width: '100%' }}>
         <AgGridReact
-          rowData={rowData} // Data yang akan ditampilkan di tabel
-          columnDefs={columnDefs} // Definisi kolom
-          defaultColDef={defaultColDef} // Definisi kolom default
-          animateRows={true} // Animasi baris saat data berubah
-          rowSelection='multiple' // Memungkinkan pemilihan multiple baris
-          pagination={true} // Aktifkan paginasi
-          paginationPageSize={10} // Jumlah baris per halaman
-          // Tambahkan ini untuk handle jika tidak ada baris data
+          rowData={rowData}
+          columnDefs={columnDefs}
+          defaultColDef={defaultColDef}
+          animateRows={true}
+          rowSelection='multiple'
+          pagination={true}
+          paginationPageSize={10}
           noRowsOverlayComponent={() => (
-              <div className="flex items-center justify-center h-full text-gray-500">
-                  Tidak ada data tempat untuk ditampilkan.
-              </div>
+            <div className="flex items-center justify-center h-full text-gray-500">
+              Tidak ada data tempat untuk ditampilkan.
+            </div>
           )}
         />
       </div>

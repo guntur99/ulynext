@@ -3,7 +3,7 @@
 
 import React, { useState, FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
-import { LatLng, RecommendationResponse } from '../../types/interfaces';
+import { RecommendationResponse } from '../../types/interfaces'; // Removed unused 'LatLng'
 import { useAuth } from '@/hooks/useAuth';
 import { useTripData } from '../../context/TripDataContext'; // Import your new hook
 
@@ -62,8 +62,12 @@ const SearchInput: React.FC<SearchInputProps> = ({ onSearchStart, onSearchEnd })
       currentLat = position.coords.latitude;
       currentLng = position.coords.longitude;
       console.log("Current location:", currentLat, currentLng);
-    } catch (geoError: any) {
-      console.warn("Could not get current geolocation. Using default coordinates.", geoError);
+    } catch (geoError: unknown) { // Changed type from 'any' to 'unknown'
+      if (geoError instanceof Error) {
+        console.warn(`Could not get current geolocation: ${geoError.message}. Using default coordinates.`);
+      } else {
+        console.warn("Could not get current geolocation. Using default coordinates.", geoError);
+      }
       currentLat = -6.890614; // Default to Bandung
       currentLng = 107.610531; // Default to Bandung
       setError("Could not get your current location. Using default coordinates for the search.");
@@ -134,9 +138,12 @@ const SearchInput: React.FC<SearchInputProps> = ({ onSearchStart, onSearchEnd })
 
       onSearchEnd?.(data, null);
 
-    } catch (err: any) {
+    } catch (err: unknown) { // Changed type from 'any' to 'unknown'
       console.error("Failed to fetch recommendation:", err);
-      const errorMessage = `An error occurred during search: ${err.message}`;
+      let errorMessage = "An unknown error occurred during the search.";
+      if (err instanceof Error) {
+        errorMessage = `An error occurred during search: ${err.message}`;
+      }
       setError(errorMessage);
       setTripDataError(errorMessage); // Store error in context
       onSearchEnd?.(null, errorMessage);

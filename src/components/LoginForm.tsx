@@ -34,9 +34,9 @@ const LoginForm: React.FC = () => {
       login(token); // Panggil fungsi login dari konteks untuk menyimpan token dan memperbarui state
       setMessage('Login berhasil!');
       router.push('/'); // Redirect ke halaman utama setelah login berhasil
-    } catch (err: any) {
+    } catch (err) {
       setError(true);
-      setMessage(err.response?.data?.message || 'Login gagal. Periksa username dan password Anda.');
+      setMessage('Login gagal. Periksa username dan password Anda.');
       console.error('Login error:', err);
     }
   };

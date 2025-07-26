@@ -30,9 +30,9 @@ const RegisterForm: React.FC = () => {
       await api.post('/auth/register', { username, email, password });
       setMessage('Registrasi berhasil! Silakan login.');
       router.push('/login'); // Redirect ke halaman login setelah registrasi berhasil
-    } catch (err: any) {
+    } catch (err) {
       setError(true);
-      setMessage(err.response?.data?.message || 'Registrasi gagal. Coba lagi.');
+      setMessage('Registrasi gagal. Coba lagi.');
       console.error('Registration error:', err);
     }
   };

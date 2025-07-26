@@ -5,9 +5,6 @@ import React, { useEffect, useRef, useState } from 'react';
 import { useTripData } from '@/context/TripDataContext';
 import { RecommendationResponse } from '@/types/interfaces';
 
-// Declare google as a global variable to avoid TypeScript errors
-declare const google: any;
-
 const LOCAL_STORAGE_KEY = 'lastTripData'; // Define a key for localStorage
 
 function ResultsPage() {
@@ -57,7 +54,8 @@ function ResultsPage() {
   // Effect 2: Check for Google Maps API readiness
   useEffect(() => {
     const checkGoogleMapsReady = setInterval(() => {
-      if (typeof google !== 'undefined' && google.maps && google.maps.geometry) {
+      // Cek apakah objek 'google' dan properti yang dibutuhkan sudah tersedia di window
+      if (typeof window.google !== 'undefined' && window.google.maps && window.google.maps.geometry) {
         setIsGoogleMapsReady(true);
         clearInterval(checkGoogleMapsReady);
       }
@@ -85,13 +83,14 @@ function ResultsPage() {
       });
 
       const path = google.maps.geometry.encoding.decodePath(polylinePoints);
-
       const bounds = new google.maps.LatLngBounds();
-      path.forEach((latLng: any) => {
+      // FIX 2: Mengganti 'any' dengan tipe yang lebih spesifik 'google.maps.LatLng'
+      path.forEach((latLng: google.maps.LatLng) => {
         bounds.extend(latLng);
       });
 
-      const routePolyline = new google.maps.Polyline({
+      // FIX 3: Menghapus variabel 'routePolyline' yang tidak digunakan
+      new google.maps.Polyline({
         path: path,
         geodesic: true,
         strokeColor: '#4285F4',

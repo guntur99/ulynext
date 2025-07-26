@@ -30,7 +30,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         // setAuthState((prev) => ({ ...prev, isLoading: true })); // Set isLoading true saat memuat
       if (storedToken) {
         try {
-          const decoded: any = jwtDecode(storedToken);
+          const decoded: User = jwtDecode(storedToken);
           // Periksa apakah token masih valid (opsional, tambahkan logika is_expired jika perlu)
           const user: User = {
             id: decoded.sub,
@@ -72,7 +72,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     if (typeof window !== 'undefined') {
       localStorage.setItem('jwt_token', newToken);
       try {
-        const decoded: any = jwtDecode(newToken);
+        const decoded: User = jwtDecode(newToken);
         const user: User = {
           id: decoded.sub,
           username: decoded.username || decoded.sub,

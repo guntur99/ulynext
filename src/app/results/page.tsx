@@ -220,14 +220,25 @@ function ResultsPage() {
       )}
 
       {/* Return Trip Shops Section */}
-      {tripData.return_trip_shop && tripData.return_trip_shop.return_trip_shop.results && tripData.return_trip_shop.return_trip_shop.results.length > 0 && (
+      {tripData.return_trip_shop && tripData.return_trip_shop.results && Object.keys(tripData.return_trip_shop).length > 0 && (
         <section className="p-6 bg-red-50 rounded-lg shadow-inner">
           <h2 className="text-2xl font-semibold mb-4 text-red-800">Return Trip Shops</h2>
           <ul className="list-disc list-inside text-gray-700 ml-5">
-            {tripData.return_trip_shop.return_trip_shop.results.map((shop, index) => (
-              <li key={index}>
-                <strong>{shop.name}</strong> - {shop.formatted_address} (Rating: {shop.rating || 'N/A'})
-              </li>
+            {Object.entries(tripData.return_trip_shop).map(([category, data], index) => (
+                
+              <div key={index}>
+                {data.results && data.results.length > 0 ? (
+                <ul className="list-disc list-inside text-gray-700 ml-5">
+                  {data.results.map((shop, shopIndex) => (
+                    <li key={shopIndex}>
+                        <strong>{shop.name}</strong> - {shop.formatted_address} (Rating: {shop.rating || 'N/A'})
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p>No {category.replace(/_/g, ' ')} trip shop found.</p>
+              )}
+              </div>
             ))}
           </ul>
         </section>

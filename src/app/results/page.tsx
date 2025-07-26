@@ -165,8 +165,8 @@ function ResultsPage() {
         <h2 className="text-2xl font-semibold mb-4 text-green-800">Main Route Details</h2>
         {tripData.main_route.routes[0].legs && tripData.main_route.routes[0].legs.length > 0 && (
           <div className="text-gray-700">
-            <p>Distance: <span className="font-medium">{tripData.main_route.routes[0].legs[0].distance.text}</span></p>
-            <p>Duration: <span className="font-medium">{tripData.main_route.routes[0].legs[0].duration.text}</span></p>
+            <p>Distance: <span className="font-medium">{tripData.main_route.routes[0].legs[0].distance?.text}</span></p>
+            <p>Duration: <span className="font-medium">{tripData.main_route.routes[0].legs[0].duration?.text}</span></p>
           </div>
         )}
       </section>
@@ -220,11 +220,11 @@ function ResultsPage() {
       )}
 
       {/* Return Trip Shops Section */}
-      {tripData.return_trip_shop && tripData.return_trip_shop.results && tripData.return_trip_shop.results.length > 0 && (
+      {tripData.return_trip_shop && tripData.return_trip_shop.return_trip_shop.results && tripData.return_trip_shop.return_trip_shop.results.length > 0 && (
         <section className="p-6 bg-red-50 rounded-lg shadow-inner">
           <h2 className="text-2xl font-semibold mb-4 text-red-800">Return Trip Shops</h2>
           <ul className="list-disc list-inside text-gray-700 ml-5">
-            {tripData.return_trip_shop.results.map((shop, index) => (
+            {tripData.return_trip_shop.return_trip_shop.results.map((shop, index) => (
               <li key={index}>
                 <strong>{shop.name}</strong> - {shop.formatted_address} (Rating: {shop.rating || 'N/A'})
               </li>

@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/components/AuthProvider'; // Import useAuth hook
 
 // Import AG Grid components dan styles
-import { ModuleRegistry, AllCommunityModule, ValueGetterParams, ICellRendererParams } from 'ag-grid-community'; // Import ICellRendererParams
+import { ColDef, ModuleRegistry, AllCommunityModule, ValueGetterParams, ICellRendererParams } from 'ag-grid-community'; // Import ICellRendererParams
 import { AgGridReact } from 'ag-grid-react';
 import "ag-grid-community/styles/ag-theme-alpine.css";
 
@@ -91,7 +91,7 @@ const MarkersPage: React.FC = () => {
 
   // Definisikan kolom untuk AG Grid menggunakan useMemo
   const columnDefs = useMemo(() => {
-    const columns = [
+    const columns: ColDef<PlaceMarker>[] = [
       {
         headerName: "No",
         valueGetter: (params: ValueGetterParams<PlaceMarker>) => params.node?.rowIndex != null ? params.node.rowIndex + 1 : '',

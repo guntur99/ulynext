@@ -8,6 +8,14 @@ import { AuthState, AuthContextType, User } from '@/types/auth'; // Import types
 // Buat AuthContext
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+  interface JwtPayload {
+  sub: string; // 'sub' is typically the subject of the token, often an ID
+  username?: string; // Make optional if it might not always be present
+  email?: string; // Make optional if it might not always be present
+  role?: string; // Make optional if it might not always be present
+  // Add any other properties your JWT payload might contain (e.g., 'exp', 'iat', 'name')
+  name?: string; // If 'name' property exists in your JWT, add it here
+}
 /**
  * AuthProvider adalah komponen yang menyediakan state dan fungsi autentikasi
  * ke seluruh aplikasi melalui React Context.
@@ -30,7 +38,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         // setAuthState((prev) => ({ ...prev, isLoading: true })); // Set isLoading true saat memuat
       if (storedToken) {
         try {
-          const decoded: User = jwtDecode(storedToken);
+          const decoded: JwtPayload = jwtDecode(storedToken);
           // Periksa apakah token masih valid (opsional, tambahkan logika is_expired jika perlu)
           const user: User = {
             id: decoded.sub,
@@ -72,7 +80,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     if (typeof window !== 'undefined') {
       localStorage.setItem('jwt_token', newToken);
       try {
-        const decoded: User = jwtDecode(newToken);
+        const decoded: JwtPayload = jwtDecode(newToken);
         const user: User = {
           id: decoded.sub,
           username: decoded.username || decoded.sub,

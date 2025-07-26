@@ -113,7 +113,11 @@ const TravelRouteMap: React.FC = () => {
         }
       } else {
         setMessage('Tidak dapat menemukan rute untuk lokasi yang diberikan.');
-        directionsRenderer.setDirections({ routes: [] });
+        directionsRenderer.setDirections({
+            routes: [],
+            request: {},
+            geocoded_waypoints: [],
+         });
       }
     } catch (err: unknown) { // FIX 3: Mengganti 'any' dengan 'unknown'
       console.error('Error calculating route:', err);
@@ -122,7 +126,11 @@ const TravelRouteMap: React.FC = () => {
         errorMessage = err.response.data.message;
       }
       setMessage(errorMessage);
-      directionsRenderer.setDirections({ routes: [] });
+      directionsRenderer.setDirections({
+        routes: [],
+        request: {},
+        geocoded_waypoints: [],
+      });
     }
   };
 

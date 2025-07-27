@@ -41,7 +41,7 @@ export interface RecommendationResponse {
         [category: string]: CategoryRecommendations; // A dynamic object where keys are category strings
     };
     return_trip_shop: {
-        [category: string]: CategoryRecommendations; // A dynamic object where keys are category strings
+        [category: string]: ShopRecommendations; // A dynamic object where keys are category strings
     };
   }
 
@@ -51,11 +51,29 @@ export interface RecommendationResponse {
         return_trip_plan: string;
     }
 
+    interface ShopRecommendations {
+    results: Place[];
+    // If your API returns other properties at this level (e.g., "status", "html_attributions"), add them here.
+    // For example:
+    // status?: string;
+    }
+
     interface CategoryRecommendations {
     results: Place[];
     // If your API returns other properties at this level (e.g., "status", "html_attributions"), add them here.
     // For example:
     // status?: string;
+    }
+
+
+    // Interface for a single place result
+    export interface Place {
+    place_id: string;
+    name: string;
+    formatted_address: string;
+    geometry: PlaceGeometry;
+    rating?: number; // Rating is often optional, so it's good practice to mark it as such
+    // If there are other properties like 'types', 'photos', etc., add them here
     }
 
     interface GeometryLocation {
@@ -68,15 +86,6 @@ export interface RecommendationResponse {
     location: GeometryLocation;
     }
 
-    // Interface for a single place result
-    interface Place {
-    place_id: string;
-    name: string;
-    formatted_address: string;
-    geometry: PlaceGeometry;
-    rating?: number; // Rating is often optional, so it's good practice to mark it as such
-    // If there are other properties like 'types', 'photos', etc., add them here
-    }
   
   // Definisi untuk Vendor (sesuai dengan struct Go Anda)
   export interface Vendor {
